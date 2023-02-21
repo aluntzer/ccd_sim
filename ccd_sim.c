@@ -271,11 +271,18 @@ static float sim_rand_gauss(void)
 
 static uint16_t ccd_sim_get_swcx_ray(void)
 {
-	float p;
+	const float pmin = log10f(SWCX_PHOT_EV_MIN);
+	const float pmax = log10f(SWCX_PHOT_EV_MAX);
 
-	/* we assume the incident x-ray energy is uniformly distributed */
-	p = fmodf(rand(), (SWCX_PHOT_EV_MAX + 1 - SWCX_PHOT_EV_MIN) * 1000.) * 0.001;
-        p += SWCX_PHOT_EV_MIN;
+	float r, p;
+
+	/* get a energy range exponent */
+	r = fmodf(rand(), (pmax + 1. - pmin) * 1000.) * 0.001;
+	/* distribute to (logarithmic) particle rate */
+	r = PARTICLE_RATE_DROP(r);
+
+	/* get energy of the particle */
+	p = (SWCX_PHOT_EV_MAX - SWCX_PHOT_EV_MIN) * r;
 	p *= e_PER_eV;
 	p *= CDD_RESP_uV_e;	/* scale to voltage-equivalent */
 
@@ -390,7 +397,7 @@ static float ccd_sim_get_cosmic_particle(void)
 	r = PARTICLE_RATE_DROP(r);
 
 	/* get energy of the particle */
-	p = COSMIC_PARTICLE_EV_MIN + (COSMIC_PARTICLE_EV_MAX - COSMIC_PARTICLE_EV_MIN) * r;
+	p = (COSMIC_PARTICLE_EV_MAX - COSMIC_PARTICLE_EV_MIN) * r;
 	p *= e_PER_eV;
 
 	return p;
@@ -414,7 +421,7 @@ static float ccd_sim_get_solar_particle(void)
 	/* we assume equal probability for solar wind components */
 
 	/* get energy of the particle */
-	p = SOLAR_PARTICLE_EV_MIN + (SOLAR_PARTICLE_EV_MAX - SOLAR_PARTICLE_EV_MIN) * r;
+	p = (SOLAR_PARTICLE_EV_MAX - SOLAR_PARTICLE_EV_MIN) * r;
 	p *= e_PER_eV;
 
 	return p;
@@ -572,7 +579,7 @@ restart:
 
 		/* scale energy loss by longest distance travelelled
 		 * within a pixel and the material-specific loss
-		*/
+		 */
 		if (fabsf(dx) > fabsf(dy))
 			d_ev = fabsf(dx);
 		else
